@@ -1,0 +1,42 @@
+mygrain-agent/
+├─ app/
+│  ├─ agent/
+│  │  ├─ state.py              # 전역 상태(Pydantic) 및 헬퍼
+│  │  ├─ graph.py              # LangGraph 정의 (Plan & Schedule)
+│  │  └─ router.py             # 조건 분기, 결괏값 머지 로직
+│  ├─ tools/
+│  │  ├─ __init__.py
+│  │  ├─ asr.py                # ASR 래퍼 (선택) : 음성→텍스트
+│  │  ├─ extractor.py          # 정보 추출기 (LLM→JSON)
+│  │  ├─ validator.py          # Validator Tool(검증/재질문 판단)
+│  │  ├─ reask.py              # 재질문 생성 Tool
+│  │  ├─ rules_engine.py       # 룰 기반 추천 엔진
+│  │  ├─ candidates.py         # 추가안(국지탐색/대체안) 생성(옵션)
+│  │  ├─ explainer.py          # 설명·요약 생성기
+│  │  ├─ formatter.py          # Final Message Formatter
+│  │  ├─ feedback.py           # 피드백 수집/검증
+│  │  └─ memory.py             # 메모리 저장/조회(사용자별)
+│  ├─ services/
+│  │  ├─ llm.py                # LLM 클라이언트(프롬프트, 재시도, 로깅)
+│  │  ├─ storage.py            # SQLite/JSON 저장소 추상화
+│  │  ├─ telemetry.py          # 로그/추적(옵션)
+│  │  └─ asr_clients.py        # 외부 ASR 클라이언트 모음(옵션)
+│  ├─ api/
+│  │  ├─ main.py               # FastAPI 엔드포인트(/recommend, /feedback)
+│  │  └─ models.py             # API용 I/O 스키마(Pydantic)
+│  ├─ schemas/
+│  │  ├─ survey_schema.json    # 설문 필드, 필수/가중치/도메인 규칙
+│  │  ├─ rules_config.json     # 룰엔진 가중치/제약 설정
+│  │  └─ grains_catalog.csv    # 곡물 카탈로그
+│  ├─ scripts/
+│  │  └─ run_cli.py            # CLI로 한 번에 돌려보기 (입력→최종메시지)
+│  └─ tests/
+│     ├─ test_tools_*.py       # 각 Tool 단위 테스트
+│     └─ test_e2e.py           # E2E 골든 테스트(샘플 입력→예상 출력)
+├─ configs/
+│  └─ app.yaml                 # 모델명, 온도, 스레시홀드, 경로 등
+├─ data/
+│  ├─ demo_inputs.jsonl        # 데모 입력들
+│  └─ memory.sqlite            # 사용자 메모리(또는 memory.json)
+├─ requirements.txt (또는 pyproject.toml)
+└─ README.md
