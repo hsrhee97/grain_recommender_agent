@@ -1,0 +1,147 @@
+{
+  "purpose": {
+    "혈당관리": {
+      "base_multiplier": 1.15,
+      "feature_multipliers": {"GI": -0.25, "섬유": 0.04},
+      "grain_bonuses": {"현미": 1.05, "귀리": 1.05, "퀴노아": 1.04}
+    },
+    "체중관리": {
+      "base_multiplier": 1.1,
+      "feature_multipliers": {"섬유": 0.05, "단백": 0.03},
+      "grain_bonuses": {"귀리": 1.05, "퀴노아": 1.05}
+    },
+    "근력": {
+      "base_multiplier": 1.08,
+      "feature_multipliers": {"단백": 0.05},
+      "grain_bonuses": {"퀴노아": 1.06, "귀리": 1.03}
+    },
+    "맛중심": {
+      "base_multiplier": 1.0,
+      "feature_multipliers": {},
+      "grain_bonuses": {"백미": 1.05},
+      "grain_penalties": {"현미": 0.95}
+    }
+  },
+  "texture_taste": {
+    "식감": {
+      "고슬밥": {
+        "feature_multipliers": {"부드러움": -0.08},
+        "grain_bonuses": {"현미": 1.02, "퀴노아": 1.02}
+      },
+      "찰진밥": {
+        "feature_multipliers": {"쫀득": 0.05},
+        "grain_bonuses": {"백미": 1.03, "귀리": 1.02},
+        "chewy_penalty_threshold": 0.7,
+        "chewy_penalty_multiplier": 0.9
+      },
+      "무관": {
+        "feature_multipliers": {}
+      }
+    },
+    "맛": {
+      "담백/중성": {
+        "feature_multipliers": {},
+        "grain_bonuses": {"현미": 1.01, "백미": 1.01}
+      }
+    }
+  },
+  "constitution_gut": {
+    "체질": {
+      "보통": {
+        "feature_multipliers": {}
+      },
+      "냉": {
+        "feature_multipliers": {"부드러움": 0.02},
+        "fiber_penalty_at_least": 5.0,
+        "fiber_penalty_multiplier": 0.9
+      }
+    },
+    "장건강": {
+      "보통": {
+        "feature_multipliers": {}
+      },
+      "민감": {
+        "feature_multipliers": {},
+        "fiber_penalty_at_least": 6.0,
+        "fiber_penalty_multiplier": 0.85,
+        "soft_bonus": {"base": 1.05, "부드러움": 0.03}
+      }
+    }
+  },
+  "frequency": {
+    "주 1-2회": {
+      "grain_bonuses": {"백미": 1.02},
+      "grain_penalties": {"귀리": 0.97}
+    },
+    "주 3-4회": {
+      "grain_bonuses": {"현미": 1.02}
+    },
+    "주 5-7회": {
+      "grain_bonuses": {"현미": 1.04, "귀리": 1.03},
+      "grain_penalties": {"백미": 0.96}
+    }
+  },
+  "allergen": {
+    "gluten_grains": ["보리", "밀", "호밀"],
+    "exclude_gluten_grains_if_true": true
+  },
+  "base_rules": {
+    "soft_triggers": {
+      "선호식감/맛": ["찰진밥"]
+    },
+    "soft_base": "백미",
+    "default_base": "현미",
+    "fallback": "백미",
+    "base_min_percent": {
+      "default": 40,
+      "현미_relaxed": 35
+    }
+  },
+  "caps": {
+    "백미": 60,
+    "귀리": 40,
+    "보리": 30
+  },
+  "mins": {
+    "현미": 30
+  },
+  "candidate": {
+    "purpose_intensity": 1.1,
+    "texture_intensity": 1.0,
+    "n_min": 3,
+    "n_max": 4
+  },
+  "section_weights": {
+    "취식 목적": 0.4,
+    "선호식감/맛": 0.3,
+    "섭취 빈도": 0.2,
+    "health_issue": 0.1
+  },
+  "survey_to_nutrients": {
+    "취식 목적": {
+      "혈당관리": ["low_gi", "fiber"],
+      "체중관리": ["fiber", "protein"],
+      "근력": ["protein", "energy"],
+      "맛중심": []
+    },
+    "health_issue": {
+      "diabetes": ["low_gi"],
+      "none": []
+    },
+    "선호식감/맛": {
+      "찰진밥": ["chewy"],
+      "고슬밥": ["fluffy"],
+      "무관": []
+    }
+  },
+  "nutrient_to_grains": {
+    "low_gi": ["현미", "퀴노아", "귀리"],
+    "fiber": ["귀리", "보리", "퀴노아"],
+    "protein": ["퀴노아", "귀리", "현미"],
+    "energy": ["백미", "현미"],
+    "chewy": ["귀리", "백미"],
+    "fluffy": ["백미", "현미"]
+  },
+  "nutrient_gain": 0.08,
+  "nutrient_rank_weights": [1.0, 0.6, 0.3]
+}

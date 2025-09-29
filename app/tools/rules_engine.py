@@ -216,11 +216,17 @@ def _compute_scores(survey, purpose_intensity=None, texture_intensity=None, W=WE
         base = _allergen_filter(row, survey, W)
         if base == 0.0:
             continue
-        base *= (_score_purpose(row, survey, W) ** purpose_intensity)
-        base *= (_score_texture_taste(row, survey, W) ** texture_intensity)
-        base *= _score_constitution_gut(row, survey, W)
-        base *= _score_frequency(row, survey, W)
-        base *= nut_bonus.get(name, 1.0)
+        purpose_score = max(_score_purpose(row, survey, W), 1e-6)
+        texture_score = max(_score_texture_taste(row, survey, W), 1e-6)
+        constitution_score = max(_score_constitution_gut(row, survey, W), 1e-6)
+        frequency_score = max(_score_frequency(row, survey, W), 1e-6)
+        nutrient_score = max(nut_bonus.get(name, 1.0), 1e-6)
+
+        base *= (purpose_score ** purpose_intensity)
+        base *= (texture_score ** texture_intensity)
+        base *= constitution_score
+        base *= frequency_score
+        base *= nutrient_score
         scores[name] = max(float(base), 1e-6)
     return scores
 
