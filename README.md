@@ -6,7 +6,7 @@
    ```bash
    pip install -r requirements.txt
    ```
-
+   
 2. 사용할 LLM 공급자와 자격 증명을 환경 변수로 지정합니다. 기본값은 OpenAI이며, Gemini도 지원합니다.
    - **OpenAI**
      ```bash

@@ -2,3 +2,4 @@ numpy
 pandas
 openai>=1.14.0
 google-generativeai>=0.5.2
+
