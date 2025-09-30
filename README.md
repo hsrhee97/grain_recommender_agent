@@ -18,7 +18,7 @@
      ```bash
      export LLM_PROVIDER=gemini
      export GEMINI_API_KEY="your-gemini-key"
-     export GEMINI_MODEL="gemini-1.5-flash"  # 필요 시 다른 모델 지정
+     export GEMINI_MODEL="gemini-2.0-flash"  # 필요 시 다른 모델 지정
      ```
 
 3. LLM 모드를 활성화하여 플로우를 실행합니다. 환경 변수를 사용하거나 함수 인자를 통해 제어할 수 있습니다.

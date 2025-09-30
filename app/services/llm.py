@@ -5,7 +5,7 @@ LLM client abstraction with OpenAI and Gemini backends.
 환경변수:
 - LLM_PROVIDER: "openai" | "openai-compatible" | "gemini" (default: openai)
 - OPENAI_API_KEY, OPENAI_BASE_URL(옵션), OPENAI_MODEL(기본 gpt-4o-mini)
-- GEMINI_API_KEY 또는 GOOGLE_API_KEY, GEMINI_MODEL(기본 gemini-1.5-flash)
+- GEMINI_API_KEY 또는 GOOGLE_API_KEY, GEMINI_MODEL(기본 gemini-2.0-flash)
 """
 
 from __future__ import annotations
@@ -78,7 +78,7 @@ class ChatLLMClient:
                 )
 
             genai.configure(api_key=self.api_key)
-            self.model = model or os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+            self.model = model or os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
             self._client = genai.GenerativeModel(self.model)
             self._backend = "gemini"
 
