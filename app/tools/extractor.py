@@ -76,7 +76,7 @@ def _detect_disliked(text: str) -> Tuple[List[str] | None, float]:
         if grain in text and re.search(_NEGATION_PATTERN, text):
             hits.append(grain)
         else:
-            # allow expressions like "보리는 빼고"
+            # "보리는 빼고" 같은 표현 허용
             if re.search(fr"{grain}[^가-힣]*(빼|제외)", text):
                 hits.append(grain)
     if hits:
@@ -241,10 +241,7 @@ def _llm_extract(user_text: str, schema: Dict[str, Any], hints: Dict[str, Any] |
     hints = hints or {}
     client = ChatLLMClient()
     messages: Iterable[ChatMessage] = [
-        ChatMessage(
-            role="system",
-            content=LLM_EXTRACTION_PROMPT,
-        ),
+        ChatMessage(role="system", content=LLM_EXTRACTION_PROMPT),
         ChatMessage(
             role="user",
             content=(
