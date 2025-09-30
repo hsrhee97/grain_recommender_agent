@@ -15,7 +15,7 @@ env/
 .env
 *.env
 
-# SQLite / local data
+# SQLite / local DB
 *.sqlite
 *.db
 
