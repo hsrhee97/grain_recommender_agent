@@ -1,0 +1,29 @@
+{
+  "required": ["purpose", "frequency", "texture_pref"],
+  "high_weight": ["purpose", "health_issue"],
+  "fields": {
+    "purpose": {
+      "type": "enum",
+      "options": ["혈당관리", "체중관리", "근력", "맛중심"]
+    },
+    "frequency": {
+      "type": "enum",
+      "options": ["주 1-2회", "주 3-4회", "주 5-7회"]
+    },
+    "texture_pref": {
+      "type": "enum",
+      "options": ["고슬밥", "찰진밥", "무관"]
+    },
+    "disliked_grains": {
+      "type": "list",
+      "options_from": "grains"
+    },
+    "avoid_gluten": {
+      "type": "bool"
+    },
+    "health_issue": {
+      "type": "enum",
+      "options": ["diabetes", "none"]
+    }
+  }
+}
