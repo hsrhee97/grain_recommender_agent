@@ -1,7 +1,7 @@
 """Utilities for generating follow-up (reask) messages."""
 from __future__ import annotations
 
-from typing import List, Sequence
+from typing import Any, Dict, List, Sequence
 
 _FIELD_LABELS = {
     "purpose": "취식 목적",
@@ -19,11 +19,21 @@ _FIELD_HINTS = {
 }
 
 
-def build_reask_message(missing_fields: Sequence[str], conflicts: Sequence[str] | None = None,
-                         locale: str = "ko-KR") -> str:
-    """Create a concise follow-up prompt for missing or conflicting answers."""
+def build_reask_message(
+    missing_fields: Sequence[str],
+    conflicts: Sequence[str] | None = None,
+    *,
+    survey: Dict[str, Dict[str, Any]] | None = None,
+    summary: str | None = None,
+    locale: str = "ko-KR",
+) -> str:
+    """Create a conversational follow-up prompt for missing or conflicting answers."""
+
     conflicts = list(conflicts or [])
     parts: List[str] = []
+
+    if summary:
+        parts.append(summary)
 
     if conflicts:
         parts.append("입력에 모순이 있어 다시 확인하고 싶어요: " + ", ".join(conflicts))
@@ -32,9 +42,31 @@ def build_reask_message(missing_fields: Sequence[str], conflicts: Sequence[str] 
         primary = missing_fields[0]
         label = _FIELD_LABELS.get(primary, primary)
         hint = _FIELD_HINTS.get(primary)
-        question = f"{label}를 알려주실 수 있을까요?"
-        if hint:
-            question += f" (예: {hint})"
+        entry = (survey or {}).get(primary, {}) if isinstance(survey, dict) else {}
+        alternatives = []
+        if isinstance(entry, dict):
+            for alt in entry.get("alternatives", []) or []:
+                if not isinstance(alt, dict):
+                    continue
+                value = alt.get("value")
+                conf = alt.get("confidence")
+                if value is None:
+                    continue
+                if isinstance(conf, (int, float)):
+                    pct = int(round(conf * 100))
+                    alternatives.append(f"{value} ({pct}%)")
+                else:
+                    alternatives.append(str(value))
+        other_text = entry.get("other_text") if isinstance(entry, dict) else None
+
+        if alternatives:
+            question = f"{label}는 {' / '.join(alternatives[:2])} 중 어느 쪽이 더 가까울까요?"
+        elif other_text:
+            question = f"{label}에 대해 '{other_text}'라고 이해했어요. 가까운 선택지를 알려주실 수 있을까요?"
+        else:
+            question = f"{label}를 알려주실 수 있을까요?"
+            if hint:
+                question += f" (예: {hint})"
         parts.append(question)
 
     if not parts:
@@ -45,7 +77,7 @@ def build_reask_message(missing_fields: Sequence[str], conflicts: Sequence[str] 
     else:
         prefix = "To proceed"
 
-    return prefix + " " + " ".join(parts)
+    return prefix + " " + "\n".join(parts)
 
 
 __all__ = ["build_reask_message"]

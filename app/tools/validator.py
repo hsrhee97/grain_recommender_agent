@@ -35,6 +35,7 @@ def _detect_conflicts(values: Dict[str, Any]) -> List[str]:
 
 def validate_survey(survey: Dict[str, Any], schema: Dict[str, Any],
                     rules: Dict[str, Any] | None = None,
+                    *, extraction: Dict[str, Any] | None = None,
                     locale: str = "ko-KR") -> Dict[str, Any]:
     """Validate survey answers against schema requirements."""
     flat = _flatten_survey(survey)
@@ -48,8 +49,18 @@ def validate_survey(survey: Dict[str, Any], schema: Dict[str, Any],
 
     ok = not missing_required and not conflicts
     reask_message = None
+    assistant_summary = None
+    if extraction:
+        assistant_summary = extraction.get("assistant_utterance")
+
     if not ok:
-        reask_message = build_reask_message(missing_required, conflicts, locale=locale)
+        reask_message = build_reask_message(
+            missing_required,
+            conflicts,
+            survey=survey,
+            summary=assistant_summary,
+            locale=locale,
+        )
 
     return {
         "ok": ok,
@@ -57,6 +68,7 @@ def validate_survey(survey: Dict[str, Any], schema: Dict[str, Any],
         "conflicts": conflicts,
         "high_weight_missing": high_weight_missing,
         "reask_message": reask_message,
+        "assistant_summary": assistant_summary,
     }
 
 
