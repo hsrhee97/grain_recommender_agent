@@ -17,7 +17,6 @@ def test_e2e_success_flow():
     assert result["payload"]["primary"]["mix"]
 
     meta = result["payload"].get("meta", {})
-    # 메모리 업데이트가 반영되었는지 확인
     assert meta.get("memory_after", {}).get("user_id") == "test"
     assert "feedback_error" not in meta
 
@@ -26,7 +25,7 @@ def test_e2e_reask_when_missing():
     text = "다이어트 목적이에요."
     result = run_agent_flow(user_text=text, user_id="test")
     assert result["payload"]["type"] == "reask"
-    assert "섭취" in result["message"]  # 누락 질문(재질문) 메시지에 가이드가 포함되는지
+    assert "섭취" in result["message"]  # 누락 필드 가이드
 
 
 def test_feedback_collection_updates_memory():

@@ -241,7 +241,11 @@ def _llm_extract(user_text: str, schema: Dict[str, Any], hints: Dict[str, Any] |
     hints = hints or {}
     client = ChatLLMClient()
     messages: Iterable[ChatMessage] = [
-        ChatMessage(role="system", content=LLM_EXTRACTION_PROMPT),
+        ChatMessage(
+            role="system",
+            content=LLM_EXTRACTION_PROMPT,
+        ),
+
         ChatMessage(
             role="user",
             content=(
