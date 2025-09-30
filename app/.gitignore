@@ -6,3 +6,4 @@ __pycache__/
 # SQLite 데이터베이스 무시
 data/*.sqlite
 *.sqlite
+replace.txt
