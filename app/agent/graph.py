@@ -70,17 +70,26 @@ def run_agent_flow(
     )
     state.survey = extraction["survey"]
 
-    report = validate_survey(state.survey, SURVEY_SCHEMA, RULE_WEIGHTS, locale=locale)
+    report = validate_survey(
+        state.survey,
+        SURVEY_SCHEMA,
+        RULE_WEIGHTS,
+        extraction=extraction,
+        locale=locale,
+    )
     state.validator_report = report
 
     if not report["ok"]:
+        payload = {
+            "type": "reask",
+            "missing_required": report.get("missing_required", []),
+            "conflicts": report.get("conflicts", []),
+        }
+        if extraction.get("assistant_utterance"):
+            payload["assistant_summary"] = extraction["assistant_utterance"]
         return {
             "message": report.get("reask_message", "추가 정보가 필요합니다."),
-            "payload": {
-                "type": "reask",
-                "missing_required": report.get("missing_required", []),
-                "conflicts": report.get("conflicts", []),
-            },
+            "payload": payload,
         }
 
     recommendation = rules_engine(state)
@@ -102,6 +111,8 @@ def run_agent_flow(
 
     meta = final.setdefault("payload", {}).setdefault("meta", {})
     meta["raw_extraction"] = extraction
+    if extraction.get("assistant_utterance"):
+        meta["assistant_summary"] = extraction["assistant_utterance"]
     if transcription_meta:
         meta["transcription"] = transcription_meta
 

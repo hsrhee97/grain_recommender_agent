@@ -131,15 +131,19 @@ def _pack_field(
     confidence: float | None,
     source: str,
     schema: Dict[str, Any],
+    extras: Dict[str, Any] | None = None,
 ) -> None:
     cleaned = _ensure_schema_value(field, value, schema)
-    survey[field] = {
+    entry: Dict[str, Any] = {
         "value": cleaned,
         "confidence": round(confidence or 0.0, 2),
         "source": source,
     }
-    if cleaned is None:
-        survey[field]["reason"] = "not_confident"
+    if extras:
+        entry.update({k: v for k, v in extras.items() if v is not None})
+    if cleaned is None and "reason" not in entry:
+        entry["reason"] = "not_confident"
+    survey[field] = entry
 
 
 def _rule_based_extract(user_text: str, schema: Dict[str, Any]) -> Dict[str, Any]:
@@ -191,6 +195,22 @@ LLM_EXTRACTION_PROMPT = (
     "confidence는 0과 1 사이의 숫자로 작성하고, 응답은 JSON 객체 하나만 출력하세요."
 )
 
+LLM_SUMMARY_PROMPT = (
+    "당신은 곡물 추천 챗봇의 보조 설명가입니다. 아래 설문 구조화 결과와 사용자 입력, "
+    "추가 힌트를 참고해 2문장 이내의 한국어 요약을 작성하세요. 첫 문장에는 사용자가 "
+    "무엇을 원하는지(목적·건강 등)를 부드럽게 인정하고, 두 번째 문장에서는 아직 확실하지 "
+    "않은 선택지나 확인이 필요한 부분을 안내해 주세요. 버튼 텍스트 없이 자연어로만 답하세요."
+)
+
+SUMMARY_FIELD_LABELS = {
+    "purpose": "목적",
+    "frequency": "섭취 빈도",
+    "texture_pref": "식감 선호",
+    "disliked_grains": "기피 곡물",
+    "avoid_gluten": "글루텐 회피",
+    "health_issue": "건강 이슈",
+}
+
 
 def _normalize_llm_response(
     payload: Dict[str, Any],
@@ -198,22 +218,67 @@ def _normalize_llm_response(
 ) -> Dict[str, Any]:
     survey_section = payload.get("survey") or payload.get("fields") or {}
     survey: Dict[str, Dict[str, Any]] = {}
+    raw_entities = payload.get("raw_entities", {}) or {}
+
     for field in schema.get("fields", {}):
         entry = survey_section.get(field)
         value = None
         confidence: float | None = None
         source = "llm"
         reason = None
+        other_text = None
+        alternatives: List[Dict[str, Any]] = []
+
         if isinstance(entry, dict):
             value = entry.get("value", entry.get("answer"))
             confidence = entry.get("confidence") or entry.get("score")
             source = entry.get("source") or source
             reason = entry.get("reason")
+            other_text = entry.get("other_text")
+            alt_entries = entry.get("alternatives") or entry.get("alt") or []
+            if isinstance(alt_entries, dict):
+                alt_entries = [alt_entries]
+            for alt in alt_entries:
+                alt_value = None
+                alt_conf: float | None = None
+                alt_reason = None
+                alt_other = None
+                if isinstance(alt, dict):
+                    alt_value = alt.get("value", alt.get("answer"))
+                    alt_conf = alt.get("confidence") or alt.get("score")
+                    alt_reason = alt.get("reason")
+                    alt_other = alt.get("other_text")
+                else:
+                    alt_value = alt
+                cleaned_alt = _ensure_schema_value(field, alt_value, schema)
+                alt_entry: Dict[str, Any] = {}
+                if cleaned_alt is not None:
+                    alt_entry["value"] = cleaned_alt
+                if alt_conf is not None:
+                    alt_entry["confidence"] = round(float(alt_conf), 2)
+                if alt_reason:
+                    alt_entry["reason"] = alt_reason
+                if cleaned_alt is None and alt_value not in {None, "", []}:
+                    alt_entry.setdefault("other_text", alt_other or alt_value)
+                elif alt_other:
+                    alt_entry["other_text"] = alt_other
+                if alt_entry:
+                    alternatives.append(alt_entry)
         elif entry is not None:
             value = entry
+
         cleaned = _ensure_schema_value(field, value, schema)
+        extras: Dict[str, Any] = {}
         if cleaned is None and value not in {None, [], ""}:
-            reason = (reason or "not_in_schema")
+            reason = reason or "not_in_schema"
+            extras["other_text"] = value if other_text is None else other_text
+        elif other_text is not None:
+            extras["other_text"] = other_text
+        if reason:
+            extras["reason"] = reason
+        if alternatives:
+            extras["alternatives"] = alternatives
+
         _pack_field(
             survey,
             field,
@@ -221,20 +286,95 @@ def _normalize_llm_response(
             confidence if confidence is not None else 0.75,
             source,
             schema,
+            extras=extras,
         )
-        if reason and "reason" not in survey[field]:
-            survey[field]["reason"] = reason
 
-    raw_entities = payload.get("raw_entities")
-    if raw_entities is None:
-        raw_entities = {
-            field: (survey_section.get(field) if not isinstance(survey_section.get(field), dict)
-                    else survey_section.get(field).get("value"))
-            for field in schema.get("fields", {})
-            if field in survey_section
-        }
+        if field not in raw_entities:
+            raw_entities[field] = value
 
     return {"survey": survey, "raw_entities": raw_entities, "meta": {"mode": "llm"}}
+
+
+def _serialize_for_summary(survey: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    serialized: Dict[str, Any] = {}
+    for field, entry in (survey or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        data: Dict[str, Any] = {
+            "value": entry.get("value"),
+            "confidence": entry.get("confidence"),
+        }
+        if entry.get("other_text"):
+            data["other_text"] = entry.get("other_text")
+        if entry.get("alternatives"):
+            data["alternatives"] = entry.get("alternatives")
+        if entry.get("reason"):
+            data["reason"] = entry.get("reason")
+        serialized[field] = data
+    return serialized
+
+
+def _fallback_summary(survey: Dict[str, Dict[str, Any]]) -> str:
+    pieces: List[str] = []
+    for field in ("purpose", "frequency", "texture_pref", "disliked_grains", "avoid_gluten", "health_issue"):
+        entry = survey.get(field, {}) if isinstance(survey, dict) else {}
+        if not isinstance(entry, dict):
+            continue
+        value = entry.get("value")
+        other = entry.get("other_text")
+        label = SUMMARY_FIELD_LABELS.get(field, field)
+        if value in (None, "", [], ()):  # type: ignore[arg-type]
+            if other:
+                pieces.append(f"{label}는 '{other}'라고 하셨어요")
+            else:
+                pieces.append(f"{label} 정보는 아직 확실하지 않아요")
+        else:
+            if isinstance(value, list):
+                formatted = ", ".join(map(str, value))
+            elif isinstance(value, bool):
+                formatted = "예" if value else "아니오"
+            else:
+                formatted = str(value)
+            pieces.append(f"{label}: {formatted}")
+    if not pieces:
+        return "사용자 의도를 파악 중이에요. 더 자세히 알려주시면 정확도가 높아져요."
+    if len(pieces) == 1:
+        return pieces[0]
+    return " / ".join(pieces[:2])
+
+
+def generate_survey_summary(
+    user_text: str,
+    survey: Dict[str, Dict[str, Any]],
+    hints: Dict[str, Any] | None = None,
+) -> str:
+    """Produce a short, conversational summary of the extraction result."""
+
+    summary_payload = {
+        "user_text": user_text.strip(),
+        "survey": _serialize_for_summary(survey),
+        "hints": hints or {},
+    }
+
+    try:
+        client = ChatLLMClient()
+        messages: Iterable[ChatMessage] = [
+            ChatMessage(role="system", content=LLM_SUMMARY_PROMPT),
+            ChatMessage(
+                role="user",
+                content=json.dumps(summary_payload, ensure_ascii=False),
+            ),
+        ]
+        response_text = client.complete(messages, temperature=0.7)
+        text = response_text.strip()
+        if text:
+            return text
+    except LLMNotConfiguredError:
+        LOGGER.debug("LLM summary is not configured; falling back to template summary.")
+    except Exception as exc:  # pragma: no cover - logging best effort
+        LOGGER.warning("LLM summary generation failed: %s", exc)
+
+    return _fallback_summary(survey)
 
 
 def _llm_extract(user_text: str, schema: Dict[str, Any], hints: Dict[str, Any] | None = None) -> Dict[str, Any]:
@@ -281,11 +421,12 @@ def extract_survey(
     use_llm = DEFAULT_USE_LLM if use_llm is None else use_llm
     fallback = DEFAULT_LLM_FALLBACK if fallback_to_rules is None else fallback_to_rules
 
+    extraction_result: Dict[str, Any] | None = None
+
     if use_llm:
         try:
-            result = _llm_extract(user_text, schema, hints=hints)
-            result.setdefault("meta", {})["mode"] = "llm"
-            return result
+            extraction_result = _llm_extract(user_text, schema, hints=hints)
+            extraction_result.setdefault("meta", {})["mode"] = "llm"
         except LLMNotConfiguredError:
             if not fallback:
                 raise
@@ -295,10 +436,16 @@ def extract_survey(
                 raise
             LOGGER.warning("LLM 추출 실패로 규칙 기반으로 전환합니다: %s", err)
 
-    rule_result = _rule_based_extract(user_text, schema)
-    if use_llm and fallback:
-        rule_result.setdefault("meta", {})["mode"] = "llm_fallback_rule"
-    return rule_result
+    if extraction_result is None:
+        extraction_result = _rule_based_extract(user_text, schema)
+        if use_llm and fallback:
+            extraction_result.setdefault("meta", {})["mode"] = "llm_fallback_rule"
+
+    summary_text = generate_survey_summary(user_text, extraction_result.get("survey", {}), hints=hints)
+    extraction_result["assistant_utterance"] = summary_text
+    extraction_result.setdefault("meta", {})["assistant_utterance"] = summary_text
+
+    return extraction_result
 
 
 __all__ = ["extract_survey", "SURVEY_SCHEMA"]

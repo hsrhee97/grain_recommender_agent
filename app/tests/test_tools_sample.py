@@ -22,7 +22,7 @@ def test_validator_detects_missing_required():
         "frequency": {"value": None},
         "texture_pref": {"value": None},
     }
-    report = validate_survey(survey, SURVEY_SCHEMA, rules=None)
+    report = validate_survey(survey, SURVEY_SCHEMA, rules=None, extraction=None)
     assert not report["ok"]
     assert "frequency" in report["missing_required"]
     assert report["reask_message"] is not None
