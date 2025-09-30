@@ -1,9 +1,10 @@
 """Orchestration helpers for the grain recommender agent."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from .state import AgentState
 from app.tools.extractor import extract_survey
@@ -11,6 +12,10 @@ from app.tools.validator import validate_survey
 from app.tools.rules_engine import rules_engine
 from app.tools.explainer import generate_explanation
 from app.tools.formatter import format_recommendation
+from app.tools.memory import get_user_memory, update_memory_from_survey
+from app.tools.feedback import record_feedback, FeedbackValidationError
+from app.tools.candidates import generate_alternatives
+from app.tools.asr import transcribe_audio
 
 SCHEMA_PATH = Path("app/schemas/survey_schema.json")
 RULES_PATH = Path("app/schemas/rule_weights.json")
@@ -25,11 +30,44 @@ SURVEY_SCHEMA = _load_json(SCHEMA_PATH)
 RULE_WEIGHTS = _load_json(RULES_PATH)
 
 
-def run_agent_flow(user_text: str, user_id: str = "demo", locale: str = "ko-KR") -> Dict[str, Any]:
+def run_agent_flow(
+    user_text: Optional[str] = None,
+    user_id: str = "demo",
+    locale: str = "ko-KR",
+    *,
+    audio_bytes: bytes | None = None,
+    audio_url: str | None = None,
+    asr_lang: str | None = None,
+    use_llm: bool | None = None,
+    fallback_to_rules: bool | None = None,
+    generate_alternative_candidates: bool = True,
+    feedback: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """Execute the single-turn recommendation flow."""
-    state = AgentState(user_id=user_id, input_text=user_text)
 
-    extraction = extract_survey(user_text, schema=SURVEY_SCHEMA)
+    if user_text is None and audio_bytes is None and audio_url is None:
+        raise ValueError("user_text 또는 음성 입력 중 하나는 필요합니다.")
+
+    transcription_meta = None
+    if (audio_bytes is not None or audio_url is not None) and not user_text:
+        transcription = transcribe_audio(
+            audio_bytes=audio_bytes,
+            audio_url=audio_url,
+            lang=asr_lang or locale,
+        )
+        user_text = transcription.get("text", "")
+        transcription_meta = transcription
+
+    state = AgentState(user_id=user_id, input_text=user_text or "")
+
+    memory_before = get_user_memory(user_id)
+
+    extraction = extract_survey(
+        user_text or "",
+        schema=SURVEY_SCHEMA,
+        use_llm=use_llm,
+        fallback_to_rules=fallback_to_rules,
+    )
     state.survey = extraction["survey"]
 
     report = validate_survey(state.survey, SURVEY_SCHEMA, RULE_WEIGHTS, locale=locale)
@@ -48,6 +86,11 @@ def run_agent_flow(user_text: str, user_id: str = "demo", locale: str = "ko-KR")
     recommendation = rules_engine(state)
     state.recommendation = recommendation
 
+    if generate_alternative_candidates:
+        extras = generate_alternatives(state.survey, recommendation["primary"])
+        if extras:
+            recommendation.setdefault("candidates", []).extend(extras)
+
     explanation = generate_explanation(recommendation["primary"], state.survey)
     state.explanation = explanation
 
@@ -57,7 +100,23 @@ def run_agent_flow(user_text: str, user_id: str = "demo", locale: str = "ko-KR")
         explanation,
     )
 
-    final.setdefault("payload", {}).setdefault("meta", {})["raw_extraction"] = extraction
+    meta = final.setdefault("payload", {}).setdefault("meta", {})
+    meta["raw_extraction"] = extraction
+    if transcription_meta:
+        meta["transcription"] = transcription_meta
+
+    meta["memory_before"] = memory_before
+    memory_after = update_memory_from_survey(user_id, state.survey)
+    meta["memory_after"] = memory_after
+
+    if feedback:
+        try:
+            feedback_result = record_feedback(user_id, feedback)
+            meta["feedback"] = feedback_result
+            meta["memory_after"] = feedback_result.get("baseline", memory_after)
+        except FeedbackValidationError as exc:
+            meta["feedback_error"] = str(exc)
+
     return final
 
 

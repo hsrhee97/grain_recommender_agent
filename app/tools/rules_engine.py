@@ -6,7 +6,7 @@ from pathlib import Path
 import json, math
 import numpy as np
 import pandas as pd
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 pd.set_option("display.precision", 2)
 
@@ -315,13 +315,27 @@ def _choose_base_dynamic(survey: dict, scores: dict, W=WEIGHTS):
         return max(allowed, key=lambda g: scores.get(g, 0.0))
     return _choose_base(survey, W)
 
-def _generate_candidates_core(survey: dict):
-    pi = float(WEIGHTS["candidate"].get("purpose_intensity", 1.0))
-    ti = float(WEIGHTS["candidate"].get("texture_intensity", 1.0))
-    scores = _compute_scores(survey, pi, ti, WEIGHTS)
+def _generate_candidates_core(
+    survey: dict,
+    *,
+    purpose_intensity: float | None = None,
+    texture_intensity: float | None = None,
+    grain_count: int | None = None,
+    candidate_conf: Dict[str, Any] | None = None,
+):
+    candidate_conf = candidate_conf or WEIGHTS.get("candidate", {})
+    if purpose_intensity is None and "purpose_intensity" in candidate_conf:
+        purpose_intensity = float(candidate_conf["purpose_intensity"])
+    if texture_intensity is None and "texture_intensity" in candidate_conf:
+        texture_intensity = float(candidate_conf["texture_intensity"])
+    if grain_count is None:
+        n_min = int(candidate_conf.get("n_min", 3))
+        n_max = int(candidate_conf.get("n_max", 5))
+        grain_count = max(n_min, min(n_max, int(survey.get("곡물 수", 5))))
+
+    scores = _compute_scores(survey, purpose_intensity, texture_intensity, WEIGHTS)
     base = _choose_base_dynamic(survey, scores, WEIGHTS)
-    n = max(WEIGHTS["candidate"]["n_min"],
-            min(WEIGHTS["candidate"]["n_max"], int(survey.get("곡물 수", 5))))
+    n = max(1, grain_count)
     chosen = _select_top_grains(scores, base, n)
     mix = _distribute_with_caps(chosen, scores, base, survey, WEIGHTS)
     return mix, scores
@@ -362,3 +376,44 @@ def rules_engine(state) -> Dict[str, Any]:
         "rationale": None
     }
     return {"primary": primary, "candidates": []}
+
+
+def generate_candidate_variants(
+    survey: Dict[str, Any],
+    *,
+    primary_mix: Dict[str, int] | None = None,
+    limit: int = 2,
+) -> List[Dict[str, int]]:
+    """Generate alternative mixes by tweaking scoring intensities."""
+
+    survey_plain = _flatten_survey(survey)
+    base_conf = dict(WEIGHTS.get("candidate", {}))
+    variants: list[Dict[str, int]] = []
+    seen = {tuple(sorted((primary_mix or {}).items()))}
+
+    variant_specs = [
+        {"purpose_intensity": float(base_conf.get("purpose_intensity", 1.0)) * 1.2},
+        {"texture_intensity": float(base_conf.get("texture_intensity", 1.0)) * 1.2},
+        {"grain_count": int(base_conf.get("n_max", 5))},
+    ]
+
+    for spec in variant_specs:
+        mix, _ = _generate_candidates_core(
+            survey_plain,
+            purpose_intensity=spec.get("purpose_intensity"),
+            texture_intensity=spec.get("texture_intensity"),
+            grain_count=spec.get("grain_count"),
+            candidate_conf=base_conf,
+        )
+        key = tuple(sorted(mix.items()))
+        if key in seen:
+            continue
+        seen.add(key)
+        variants.append(mix)
+        if len(variants) >= limit:
+            break
+
+    return variants
+
+
+__all__ = ["rules_engine", "generate_candidate_variants"]
