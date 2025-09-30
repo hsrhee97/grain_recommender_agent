@@ -1,0 +1,58 @@
+C:/Users/hslee/Desktop/grain_recommender_agent
+├── app
+│   ├── agent
+│   │   ├── D8TEM4.DOCX
+│   │   ├── graph.py
+│   │   ├── router.py
+│   │   └── state.py
+│   ├── api
+│   │   ├── D8TEM4.DOCX
+│   │   ├── main.py
+│   │   └── models.py
+│   ├── schemas
+│   │   ├── D8TEM4.DOCX
+│   │   ├── grains_catalog.csv
+│   │   ├── rule_weights.json
+│   │   ├── rules_config.json
+│   │   └── survey_schema.json
+│   ├── scripts
+│   │   ├── D8TEM4.DOCX
+│   │   └── run_cli.py
+│   ├── services
+│   │   ├── asr_clients.py
+│   │   ├── D8TEM4.DOCX
+│   │   ├── llm.py
+│   │   ├── storage.py
+│   │   └── telemetry.py
+│   ├── tests
+│   │   ├── D8TEM4.DOCX
+│   │   ├── test_e2e.py
+│   │   └── test_tools_sample.py
+│   ├── tools
+│   │   ├── __init__.py
+│   │   ├── asr.py
+│   │   ├── candidates.py
+│   │   ├── D8TEM4.DOCX
+│   │   ├── explainer.py
+│   │   ├── extractor.py
+│   │   ├── feedback.py
+│   │   ├── formatter.py
+│   │   ├── memory.py
+│   │   ├── reask.py
+│   │   ├── rules_engine.py
+│   │   └── validator.py
+│   └── D8TEM4.DOCX
+├── configs
+│   ├── app.yaml
+│   └── D8TEM4.DOCX
+├── data
+│   ├── D8TEM4.DOCX
+│   ├── demo_inputs.jsonl
+│   └── memory.sqlite
+├── D8TEM4.DOCX
+├── file_structure.txt
+├── grain_agent_tutorial.ipynb
+├── README.md
+└── requirements.txt
+
+[총합] 폴더: 10, 파일: 45
