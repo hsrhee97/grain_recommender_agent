@@ -1,9 +1,0 @@
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.ipynb_checkpoints/
-# SQLite 데이터베이스 무시
-data/*.sqlite
-*.sqlite
-replace.txt

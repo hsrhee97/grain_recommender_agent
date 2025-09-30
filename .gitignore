@@ -1,0 +1,27 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Secrets
+.env
+*.env
+
+# SQLite / local data
+*.sqlite
+*.db
+
+# OS/IDE
+.vscode/
+.idea/
+.DS_Store
+
+replace.txt
